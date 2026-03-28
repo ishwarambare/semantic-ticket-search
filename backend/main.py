@@ -2,10 +2,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base
 from routes import tickets, search
-from vector_store import get_index_stats
+from vector_store import get_index_stats, ensure_index_exists
 
 # Create all PostgreSQL tables
 Base.metadata.create_all(bind=engine)
+
+# Create Pinecone index if it doesn't exist
+ensure_index_exists()
 
 app = FastAPI(
     title="Semantic Ticket Search",

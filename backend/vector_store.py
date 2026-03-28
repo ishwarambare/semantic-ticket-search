@@ -1,4 +1,4 @@
-from pinecone import Pinecone
+from pinecone import Pinecone, ServerlessSpec
 from dotenv import load_dotenv
 import os
 
@@ -7,9 +7,41 @@ load_dotenv()
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME")
 
-# Initialize Pinecone connection
+# Initialize Pinecone client (does NOT connect to index yet)
 pc = Pinecone(api_key=PINECONE_API_KEY)
-index = pc.Index(PINECONE_INDEX_NAME)
+
+# Lazy index connection — resolved on first use
+_index = None
+
+def _get_index():
+    """
+    Lazily connect to the Pinecone index.
+    This avoids crashing at startup if the index
+    hasn't been created yet.
+    """
+    global _index
+    if _index is None:
+        _index = pc.Index(PINECONE_INDEX_NAME)
+    return _index
+
+def ensure_index_exists():
+    """
+    Create the Pinecone index if it doesn't exist.
+    Call this once during app startup or setup.
+    Dimension=384 matches all-MiniLM-L6-v2 model.
+    """
+    existing = [idx.name for idx in pc.list_indexes()]
+    if PINECONE_INDEX_NAME not in existing:
+        print(f"Creating Pinecone index '{PINECONE_INDEX_NAME}'...")
+        pc.create_index(
+            name=PINECONE_INDEX_NAME,
+            dimension=384,
+            metric="cosine",
+            spec=ServerlessSpec(cloud="aws", region="us-east-1"),
+        )
+        print(f"Index '{PINECONE_INDEX_NAME}' created ✓")
+    else:
+        print(f"Pinecone index '{PINECONE_INDEX_NAME}' already exists ✓")
 
 def upsert_ticket_vector(
     ticket_id: int,
@@ -28,7 +60,7 @@ def upsert_ticket_vector(
     vector. Upsert handles both insert and update.
     """
     try:
-        index.upsert(
+        _get_index().upsert(
             vectors=[{
                 "id": str(ticket_id),  # Pinecone IDs must be strings
                 "values": embedding,
@@ -84,7 +116,7 @@ def search_similar_tickets(
     if filter_dict:
         query_params["filter"] = filter_dict
     
-    results = index.query(**query_params)
+    results = _get_index().query(**query_params)
     
     similar = []
     for match in results["matches"]:
@@ -109,7 +141,7 @@ def search_similar_tickets(
 def delete_ticket_vector(ticket_id: int) -> bool:
     """Remove ticket vector when ticket is deleted."""
     try:
-        index.delete(ids=[str(ticket_id)])
+        _get_index().delete(ids=[str(ticket_id)])
         return True
     except Exception as e:
         print(f"Pinecone delete error: {e}")
@@ -120,4 +152,4 @@ def get_index_stats() -> dict:
     Useful for debugging — see how many vectors 
     are stored and index health.
     """
-    return index.describe_index_stats()
+    return _get_index().describe_index_stats()
