@@ -26,7 +26,10 @@ uvicorn main:app --reload
 python seed_data.py
 
 ## API Endpoints
-POST /tickets/          - Create ticket
-GET  /search/similar    - Find similar tickets  
-GET  /search/check-duplicate - Duplicate detection
-GET  /health            - System health
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | /tickets/ | Create ticket |
+| GET | /search/similar | Find similar tickets |
+| GET | /search/check-duplicate | Duplicate detection |
+| GET | /health | System health |
