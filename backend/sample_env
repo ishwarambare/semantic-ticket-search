@@ -1,0 +1,9 @@
+# PostgreSQL
+DATABASE_URL=
+
+# Pinecone
+PINECONE_API_KEY=
+PINECONE_INDEX_NAME=
+
+# App
+APP_ENV=
